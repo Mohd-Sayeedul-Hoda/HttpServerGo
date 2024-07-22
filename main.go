@@ -4,12 +4,23 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/Mohd-Sayeedul-Hoda/httpServer/internal/header"
 	"log"
 	"net"
+
+	"github.com/Mohd-Sayeedul-Hoda/httpServer/internal/header"
+	"github.com/Mohd-Sayeedul-Hoda/httpServer/internal/request"
+	"github.com/Mohd-Sayeedul-Hoda/httpServer/internal/route"
 )
 
 func main() {
+	err := route.RegisterRoute("/", rootHandler)
+	if err != nil {
+		log.Panic(err)
+	}
+	err = route.RegisterRoute("/echo/:param", echoHandler)
+	if err != nil {
+		log.Panic(err)
+	}
 	listen, err := net.Listen("tcp", "localhost:8000")
 	if err != nil {
 		log.Panic(err)
@@ -48,14 +59,38 @@ func resp(conn net.Conn) {
 	header := header.ParseHeader(req)
 
 	var resp string
-	if header["url"] == "/" {
-		resp = fmt.Sprintf("HTTP/1.1 200 OK\r\n\r\n")
-	} else {
+	fn, param, err := route.ResolveRoute(header.URL)
+	if err != nil {
 		resp = fmt.Sprintf("HTTP/1.1 404 Not Found\r\n\r\n")
+		conn.Write([]byte(resp))
+		return
+	} else {
+		req := request.Request{
+			Header: header,
+			Params: param,
+		}
+		fn(req, conn)
 	}
-	_, err := conn.Write([]byte(resp))
+	_, err = conn.Write([]byte(resp))
 	if err != nil {
 		log.Printf("Cannot write to the connection %s\n", err)
 		return
 	}
+}
+
+func echoHandler(req request.Request, conn net.Conn) error {
+	respString := req.Params["params"]
+	contentLength := len(respString)
+	resp := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLength, respString)
+	conn.Write([]byte(resp))
+	return nil
+}
+
+func rootHandler(req request.Request, conn net.Conn) error {
+	resp := fmt.Sprintf("HTTP/1.1 200 OK\r\n\r\n")
+	_, err := conn.Write([]byte(resp))
+	if err != nil {
+		return err
+	}
+	return nil
 }
