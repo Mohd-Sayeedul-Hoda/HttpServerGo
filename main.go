@@ -15,7 +15,7 @@ import (
 func main() {
 	err := route.RegisterRoute("/", rootHandler)
 	if err != nil {
-		log.Panic(err)
+		log.Panic("connot register the path", err)
 	}
 	err = route.RegisterRoute("/echo/:param", echoHandler)
 	if err != nil {

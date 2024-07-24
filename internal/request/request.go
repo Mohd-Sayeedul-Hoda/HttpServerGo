@@ -7,4 +7,5 @@ import (
 type Request struct {
 	Header header.Header
 	Params map[string]string
+	Body   []byte
 }
