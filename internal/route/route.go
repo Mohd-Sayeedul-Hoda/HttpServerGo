@@ -11,27 +11,44 @@ import (
 type fn func(request.Request, net.Conn) error
 
 var (
-	routes = make(map[string]fn)
-	mu     sync.Mutex
+	routesGET  = make(map[string]fn)
+	routesPOST = make(map[string]fn)
+	mu         sync.Mutex
 )
 
-func RegisterRoute(path string, fn func(request.Request, net.Conn) error) error {
+func RegisterRoute(method string, path string, fn func(request.Request, net.Conn) error) error {
 	mu.Lock()
 	defer mu.Unlock()
-	_, exist := routes[path]
-	if exist {
-		return errors.New("URL already exists")
+	if method == "GET" {
+		_, exist := routesGET[path]
+		if exist {
+			return errors.New("URL already exists")
+		}
+		routesGET[path] = fn
+	} else if method == "POST" {
+		_, exist := routesPOST[path]
+		if exist {
+			return errors.New("URL already exists")
+		}
+		routesPOST[path] = fn
 	}
-	routes[path] = fn
 	return nil
 }
 
-func ResolveRoute(path string) (fn, map[string]string, error) {
+func ResolveRoute(path string, method string) (fn, map[string]string, error) {
 	mu.Lock()
 	defer mu.Unlock()
-	for route, handler := range routes {
-		if params, match := matchRoute(route, path); match {
-			return handler, params, nil
+	if method == "GET" {
+		for route, handler := range routesGET {
+			if params, match := matchRoute(route, path); match {
+				return handler, params, nil
+			}
+		}
+	} else if method == "POST" {
+		for route, handler := range routesPOST {
+			if params, match := matchRoute(route, path); match {
+				return handler, params, nil
+			}
 		}
 	}
 	return nil, nil, errors.New("URL does't exist")
